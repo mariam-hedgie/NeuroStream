@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 # jsonify returns Python dicts/lists as proper JSON responses
 
 from db import init_db, get_latest_samples
@@ -89,6 +89,10 @@ def control():
         return jsonify({"status": "stopped"})
     else:
         return jsonify({"error": "action must be 'start' or 'stop'"}), 400
+    
+@app.route("/")
+def home():
+    return send_from_directory("../frontend", "index.html")
 
 
 if __name__ == "__main__":
