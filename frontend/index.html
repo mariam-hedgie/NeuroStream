@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>NeuroStream Dashboard</title>
+
+    <!-- Chart.js for plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; }
+      h1 { margin-bottom: 6px; }
+      .sub { color: #555; margin-top: 0; }
+      .row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
+      .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px 14px; min-width: 240px; }
+      button { padding: 8px 12px; margin-right: 8px; cursor: pointer; }
+      canvas { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 10px; }
+      code { background: #f6f6f6; padding: 2px 6px; border-radius: 6px; }
+    </style>
+  </head>
+
+  <body>
+    <h1>NeuroStream</h1>
+    <p class="sub">Live simulated neural stream via REST API (<code>/latest</code>)</p>
+
+    <div class="row">
+      <div class="card">
+        <div><b>Status:</b> <span id="status">—</span></div>
+        <div><b>Samples:</b> <span id="samples">—</span></div>
+        <div><b>Channels:</b> <span id="channels">—</span></div>
+        <div><b>Last timestamp:</b> <span id="ts">—</span></div>
+      </div>
+
+      <div class="card">
+        <b>Controls</b>
+        <div style="margin-top:10px;">
+          <button id="startBtn">Start</button>
+          <button id="stopBtn">Stop</button>
+        </div>
+        <p style="color:#666; margin-top:10px;">
+          Uses <code>POST /control</code> to start/stop acquisition.
+        </p>
+      </div>
+    </div>
+
+    <div style="margin-top:18px;">
+      <canvas id="chart" width="1000" height="420"></canvas>
+    </div>
+
+    <script src="./main.js"></script>
+  </body>
+</html>

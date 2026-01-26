@@ -3,7 +3,7 @@ import math
 import random
 import threading
 
-from config import SAMPLE_RATE_HZ, NUM_CHANNELS
+from config import SAMPLE_RATE_HERTZ, NUM_CHANNELS
 from db import insert_sample
 
 
@@ -37,7 +37,7 @@ class NeuralDataSimulator:
         """
         Runs at approximately SAMPLE_RATE_HZ.
         """
-        dt = 1.0 / SAMPLE_RATE_HZ
+        dt = 1.0 / SAMPLE_RATE_HERTZ
 
         while self.running:
             t_now = time.time()
