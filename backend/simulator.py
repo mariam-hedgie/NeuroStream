@@ -18,17 +18,14 @@ class NeuralDataSimulator:
     """
 
     def __init__(self):
+
+        self.t0 = None
         self.running = False # flag
         self.thread = None
 
         # give each channel slightly different frequency and phase 
         self.freqs = [10 + i * 2 for i in range(NUM_CHANNELS)]   # e.g., 10, 12, 14, 16 Hz
         self.phases = [random.uniform(0, 2 * math.pi) for _ in range(NUM_CHANNELS)] # makes random phase offset
-
-        # artifact injection to simulate real EEG issues
-        self.artifact_mode = None # none/dropout/line noise/spike
-        self.artifact_until = 0.0 # epoch time when artifact ends
-        self.artifact_prib_per_sec = 0.03 # 3% chance per second to start an artifact
 
         self.artifacts = [None] * NUM_CHANNELS
         self.global_line_noise = None
@@ -53,12 +50,15 @@ class NeuralDataSimulator:
                 if a["type"] == "dropout":
                     v = 0.0
                 elif a["type"] == "spike":
-                    # spike is brief; add a big bump
-                    v += a["amp"] * (1.0 if random.random() < 0.5 else -1.0)
+                        # spike should be brief: only hit occasionally during the window
+                        if random.random() < 0.05:  # ~5% of samples during spike window
+                            v += a["amp"] * (1.0 if random.random() < 0.5 else -1.0)
                 elif a["type"] == "saturation":
                     # clip to rails
                     rail = a["rail"]
                     v = max(-rail, min(rail, v))
+                elif a["type"] == "flatline":
+                    v = a["level"] + random.gauss(0,0.003)
 
             values.append(v)
 
@@ -82,7 +82,8 @@ class NeuralDataSimulator:
 
         while self.running:
             t_now = time.time()
-            sample = self._generate_sample(t_now)
+            t = t_now - self.t0 # elapsed seconds since start
+            sample = self._generate_sample(t) # save real sample in DB
 
             # store one row of timestamp + channel values 
             insert_sample(t_now, sample)
@@ -94,6 +95,7 @@ class NeuralDataSimulator:
         if self.thread is not None and self.thread.is_alive():
             return  # already running
 
+        self.t0 = time.time()
         self.running = True
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
         self.thread.start()
@@ -125,8 +127,10 @@ class NeuralDataSimulator:
             self._start_spike(end_t)
         elif r < P_DROPOUT + P_SPIKE + P_LINE_NOISE:
             self._start_line_noise(end_t)
-        else:
+        elif r < P_DROPOUT + P_SPIKE + P_LINE_NOISE + P_SATURATION:
             self._start_saturation(end_t)
+        else:
+            self._start_flatline(end_t)
 
 
     def _start_dropout(self, end_t):
@@ -165,6 +169,15 @@ class NeuralDataSimulator:
         ch = random.randrange(NUM_CHANNELS)
         rail = random.uniform(0.6, 1.2)
         self.artifacts[ch] = {"type": "saturation", "end_t": end_t, "rail": rail}
+
+    def _start_flatline(self, end_t):
+        """
+        Flatline: constant value with tiny jitter.
+        Often looks like disconnected electrode but not necessarily zero.
+        """
+        ch = random.randrange(NUM_CHANNELS)
+        level = random.uniform(-0.05, 0.05)
+        self.artifacts[ch] = {"type": "flatline", "end_t": end_t, "level": level}
 
 
     def _cleanup_artifacts(self, t):
