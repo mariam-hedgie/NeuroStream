@@ -6,7 +6,7 @@ import threading
 from config import SAMPLE_RATE_HERTZ, NUM_CHANNELS
 from config import (
     ARTIFACT_CHANGE_PER_SEC, ARTIFACT_MIN_SEC, ARTIFACT_MAX_SEC,
-    P_DROPOUT, P_SPIKE, P_LINE_NOISE, P_SATURATION
+    P_DROPOUT, P_SPIKE, P_LINE_NOISE, P_SATURATION, P_FLATLINE
 )
 from db import insert_sample
 
@@ -50,9 +50,9 @@ class NeuralDataSimulator:
                 if a["type"] == "dropout":
                     v = 0.0
                 elif a["type"] == "spike":
-                        # spike should be brief: only hit occasionally during the window
-                        if random.random() < 0.05:  # ~5% of samples during spike window
-                            v += a["amp"] * (1.0 if random.random() < 0.5 else -1.0)
+                    # spike should be brief: only hit occasionally during the window
+                    if random.random() < 0.05:  # ~5% of samples during spike window
+                        v += a["amp"] * (1.0 if random.random() < 0.5 else -1.0)
                 elif a["type"] == "saturation":
                     # clip to rails
                     rail = a["rail"]
@@ -121,15 +121,22 @@ class NeuralDataSimulator:
         end_t = t + dur
 
         r = random.random()
-        if r < P_DROPOUT:
+
+        p1 = P_DROPOUT
+        p2 = p1 + P_SPIKE
+        p3 = p2 + P_LINE_NOISE
+        p4 = p3 + P_SATURATION
+        p5 = p4 + P_FLATLINE  # should end at 1.0
+
+        if r < p1:
             self._start_dropout(end_t)
-        elif r < P_DROPOUT + P_SPIKE:
+        elif r < p2:
             self._start_spike(end_t)
-        elif r < P_DROPOUT + P_SPIKE + P_LINE_NOISE:
+        elif r < p3:
             self._start_line_noise(end_t)
-        elif r < P_DROPOUT + P_SPIKE + P_LINE_NOISE + P_SATURATION:
+        elif r < p4:
             self._start_saturation(end_t)
-        else:
+        elif r < p5:
             self._start_flatline(end_t)
 
 
