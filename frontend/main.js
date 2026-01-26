@@ -1,3 +1,5 @@
+console.log("main.js loaded"); // for debugging
+
 const API_BASE = "http://127.0.0.1:5000"; // where backend lives
 
 const statusEl = document.getElementById("status");
@@ -7,6 +9,9 @@ const tsEl = document.getElementById("ts");
 
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
+
+const qualitySummaryEl = document.getElementById("qualitySummary");
+const qualityBadgesEl = document.getElementById("qualityBadges");
 
 let chart; // Chart.js instance
 let lastQualityFetch = 0;
@@ -30,16 +35,37 @@ async function fetchLatest() {
 
 async function fetchQuality() {
     const res = await fetch(`${API_BASE}/quality`);
-    if (!res.ok) throw new Error("quality not ok");
+    if (!res.ok) throw new Error(`quality not ok: ${res.status}`);
     return await res.json();
   }
   
 function renderQuality(q) {
-    // Simple: show overall status in the status line (or you can add dedicated DOM elements)
-    // q.overall.status is "good" / "degraded" / "bad"
-    const summary = q.overall?.summary || "";
-    statusEl.textContent = `streaming | quality: ${q.overall.status} (${summary})`;
-    }
+    if (!qualitySummaryEl) return;
+
+    qualitySummaryEl.textContent =
+      `Overall: ${q.overall.status} (${q.overall.summary})`;
+  
+    if (!qualityBadgesEl) return;
+    qualityBadgesEl.innerHTML = "";
+  
+    q.channels.forEach((ch) => {
+      const pill = document.createElement("div");
+      pill.style.padding = "6px 10px";
+      pill.style.borderRadius = "999px";
+      pill.style.border = "1px solid #ccc";
+      pill.style.fontSize = "12px";
+  
+      pill.style.background =
+        ch.status === "good" ? "#e9fbe9" :
+        ch.status === "degraded" ? "#fff6db" :
+        "#ffe2e2";
+  
+      pill.textContent =
+        `Ch${ch.channel}: ${ch.status} | RMS ${ch.rms.toFixed(2)} | LN ${ch.line_noise_ratio.toFixed(2)}`;
+  
+      qualityBadgesEl.appendChild(pill);
+    });
+  }
 
 function initChart(numChannels) {
   const ctx = document.getElementById("chart");
@@ -77,7 +103,8 @@ function updateChart(payload) {
   samplesEl.textContent = num_samples;
 
   if (data.length > 0) {
-    tsEl.textContent = data[data.length - 1].timestamp.toFixed(3);
+    const ts = data[data.length-1].timestamp;
+    tsEl.textContent = `${ts.toFixed(3)} (${new Date(ts * 1000).toLocaleTimeString()})`;
   }
 
   // Initialize chart on first successful payload
@@ -129,19 +156,21 @@ async function mainLoop() {
   try {
     const latest = await fetchLatest();
     updateChart(latest);
+    statusEl.textContent = "streaming";
+
+    // Fetch quality ~1x/sec (FFT is heavier than /latest)
     const now = Date.now();
-    if (now - lastQualityFetch > 1000) {   // once per second
-    lastQualityFetch = now;
-    try {
+    if (now - lastQualityFetch > 1000) {
+      lastQualityFetch = now;
+      try {
         const q = await fetchQuality();
         renderQuality(q);
-    } catch (e) {
+      } catch (e) {
         console.error(e);
+        if (qualitySummaryEl) qualitySummaryEl.textContent = `Quality error: ${e.message}`;
+      }
     }
-    } else {
-    statusEl.textContent = "streaming";
-    }
-    statusEl.textContent = "streaming";
+
   } catch (e) {
     statusEl.textContent = "error";
   }

@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request, send_from_directory
 from quality import compute_quality
 # jsonify returns Python dicts/lists as proper JSON responses
+
 import db
 from db import init_db, get_latest_samples
 from simulator import NeuralDataSimulator
@@ -103,11 +104,13 @@ def main_js():
 def quality():
     rows = get_latest_samples(limit=2000)
 
+    # convert tuples to dict format expected by compute_quality() function
     samples = []
     for row in rows:
-        timestamp = row[0]
-        channels = list(row[1:])
-        samples.append({"timestamp": timestamp, "channels": channels})
+        samples.append({
+            "timestamp": row[0],
+            "channels": list(row[1:])
+        })
 
     q = compute_quality(samples, fs=256, line_freq=60, window_seconds=2.0)
     return jsonify(q)
