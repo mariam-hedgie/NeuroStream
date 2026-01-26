@@ -9,14 +9,50 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-      body { font-family: Arial, sans-serif; margin: 24px; }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 24px;
+        background: #0b0f17;
+        color: #e8eefc;
+      }
       h1 { margin-bottom: 6px; }
-      .sub { color: #555; margin-top: 0; }
+      .sub { color: #a9b4d0; margin-top: 0; }
+
       .row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
-      .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px 14px; min-width: 240px; }
-      button { padding: 8px 12px; margin-right: 8px; cursor: pointer; }
-      canvas { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 10px; }
-      code { background: #f6f6f6; padding: 2px 6px; border-radius: 6px; }
+
+      .card {
+        border: 1px solid #1f2a44;
+        background: #101827;
+        border-radius: 10px;
+        padding: 12px 14px;
+        min-width: 240px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+      }
+
+      button {
+        padding: 8px 12px;
+        margin-right: 8px;
+        cursor: pointer;
+        background: #1f2a44;
+        color: #e8eefc;
+        border: 1px solid #2b3a5f;
+        border-radius: 8px;
+      }
+      button:hover { background: #263553; }
+
+      canvas {
+        background: #0f172a;
+        border: 1px solid #1f2a44;
+        border-radius: 12px;
+        padding: 10px;
+      }
+
+      code {
+        background: #111c33;
+        color: #e8eefc;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
     </style>
   </head>
 
@@ -38,7 +74,7 @@
           <button id="startBtn">Start</button>
           <button id="stopBtn">Stop</button>
         </div>
-        <p style="color:#666; margin-top:10px;">
+        <p style="color:#a9b4d0; margin-top:10px;">
           Uses <code>POST /control</code> to start/stop acquisition.
         </p>
       </div>
@@ -54,6 +90,6 @@
       <canvas id="chart" width="1000" height="420"></canvas>
     </div>
 
-    <script src="./main.js"></script>
+    <script src="/main.js"></script>
   </body>
 </html>

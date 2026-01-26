@@ -1,6 +1,8 @@
 console.log("main.js loaded"); // for debugging
+console.log("chart exists?", typeof Chart);
 
-const API_BASE = "http://127.0.0.1:5000"; // where backend lives
+const API_BASE = ""; // where backend lives
+const SAMPLE_RATE_HERTZ = 256;
 
 const statusEl = document.getElementById("status");
 const samplesEl = document.getElementById("samples");
@@ -56,9 +58,13 @@ function renderQuality(q) {
       pill.style.fontSize = "12px";
   
       pill.style.background =
-        ch.status === "good" ? "#e9fbe9" :
-        ch.status === "degraded" ? "#fff6db" :
-        "#ffe2e2";
+        ch.status === "good" ? "#16a34a" :
+        ch.status === "degraded" ? "#f59e0b" :
+        "#dc2626";
+
+        pill.style.color = "#ffffff";
+        pill.style.fontWeight = "600";
+        pill.style.boxShadow = "0 0 6px rgba(255,255,255,0.15)";
   
       pill.textContent =
         `Ch${ch.channel}: ${ch.status} | RMS ${ch.rms.toFixed(2)} | LN ${ch.line_noise_ratio.toFixed(2)}`;
@@ -89,7 +95,10 @@ function initChart(numChannels) {
       animation: false,
       plugins: { legend: { display: true } },
       scales: {
-        x: { display: false },
+        x: { display: true, 
+            title: {display: true, text: "Time (s)"},
+            ticks: {maxTicksLimit: 10}
+         },
         y: { title: { display: true, text: "Amplitude (simulated)" } }
       }
     }
@@ -111,7 +120,7 @@ function updateChart(payload) {
   if (!chart) initChart(num_channels);
 
   // x-axis labels = sample index (simple + stable)
-  const labels = data.map((_, i) => i);
+  const labels = data.map((_, i) => (i / SAMPLE_RATE_HERTZ).toFixed(2)); // seconds
 
   chart.data.labels = labels;
 

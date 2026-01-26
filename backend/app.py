@@ -5,7 +5,7 @@ from quality import compute_quality
 import db
 from db import init_db, get_latest_samples
 from simulator import NeuralDataSimulator
-from config import BUFFER_SIZE, NUM_CHANNELS
+from config import BUFFER_SIZE, NUM_CHANNELS, SAMPLE_RATE_HERTZ
 
 app = Flask(__name__)
 
@@ -112,7 +112,7 @@ def quality():
             "channels": list(row[1:])
         })
 
-    q = compute_quality(samples, fs=256, line_freq=60, window_seconds=2.0)
+    q = compute_quality(samples, fs=SAMPLE_RATE_HERTZ, line_freq=60, window_seconds=2.0)
     return jsonify(q)
 
 

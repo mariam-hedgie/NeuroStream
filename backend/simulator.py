@@ -4,6 +4,10 @@ import random
 import threading
 
 from config import SAMPLE_RATE_HERTZ, NUM_CHANNELS
+from config import (
+    ARTIFACT_CHANGE_PER_SEC, ARTIFACT_MIN_SEC, ARTIFACT_MAX_SEC,
+    P_DROPOUT, P_SPIKE, P_LINE_NOISE, P_SATURATION
+)
 from db import insert_sample
 
 
@@ -21,17 +25,54 @@ class NeuralDataSimulator:
         self.freqs = [10 + i * 2 for i in range(NUM_CHANNELS)]   # e.g., 10, 12, 14, 16 Hz
         self.phases = [random.uniform(0, 2 * math.pi) for _ in range(NUM_CHANNELS)] # makes random phase offset
 
+        # artifact injection to simulate real EEG issues
+        self.artifact_mode = None # none/dropout/line noise/spike
+        self.artifact_until = 0.0 # epoch time when artifact ends
+        self.artifact_prib_per_sec = 0.03 # 3% chance per second to start an artifact
+
+        self.artifacts = [None] * NUM_CHANNELS
+        self.global_line_noise = None
+
     def _generate_sample(self, t):
         """
-        Generate one sample across NUM_CHANNELS at time t.
-        Signal = sine wave + random noise (EEG-ish).
+        One sample = one timestamp worth of values for all channels.
         """
+        # possibly start an artifact event
+        self._maybe_start_artifacts(t)
+
         values = []
-        for ch in range(NUM_CHANNELS): # one number per channel
+        for ch in range(NUM_CHANNELS):
+            # base oscillation per channel + gaussian noise
             signal = math.sin(2 * math.pi * self.freqs[ch] * t + self.phases[ch])
-            noise = random.gauss(0, 0.15)  # adds gaussian noise to make it realistic
-            values.append(signal + noise)
-        return values # multi channel values
+            noise = random.gauss(0, 0.15)
+            v = signal + noise
+
+            # apply per-channel artifact if active
+            a = self.artifacts[ch]
+            if a is not None:
+                if a["type"] == "dropout":
+                    v = 0.0
+                elif a["type"] == "spike":
+                    # spike is brief; add a big bump
+                    v += a["amp"] * (1.0 if random.random() < 0.5 else -1.0)
+                elif a["type"] == "saturation":
+                    # clip to rails
+                    rail = a["rail"]
+                    v = max(-rail, min(rail, v))
+
+            values.append(v)
+
+        # apply global line noise if active (affects all channels)
+        if self.global_line_noise is not None:
+            ln = self.global_line_noise
+            hum = ln["amp"] * math.sin(2 * math.pi * 60.0 * t)
+            values = [v + hum for v in values]
+
+        # cleanup expired artifacts after generating
+        self._cleanup_artifacts(t)
+
+        return values
+
 
     def _run_loop(self):
         """
@@ -62,3 +103,78 @@ class NeuralDataSimulator:
         # wait briefly for thread to exit
         if self.thread is not None: 
             self.thread.join(timeout=0.2)
+
+    def _maybe_start_artifacts(self, t):
+        """
+        Randomly start an artifact event.
+        Can affect 1 channel or multiple channels.
+        Also can start a global line-noise event.
+        """
+        # chance per sample derived from per-second chance
+        p_per_sample = ARTIFACT_CHANGE_PER_SEC / SAMPLE_RATE_HERTZ
+        if random.random() > p_per_sample:
+            return
+
+        dur = random.uniform(ARTIFACT_MIN_SEC, ARTIFACT_MAX_SEC)
+        end_t = t + dur
+
+        r = random.random()
+        if r < P_DROPOUT:
+            self._start_dropout(end_t)
+        elif r < P_DROPOUT + P_SPIKE:
+            self._start_spike(end_t)
+        elif r < P_DROPOUT + P_SPIKE + P_LINE_NOISE:
+            self._start_line_noise(end_t)
+        else:
+            self._start_saturation(end_t)
+
+
+    def _start_dropout(self, end_t):
+        """
+        Dropout: flatline. Randomly choose 1..N channels.
+        """
+        # pick how many channels drop out (bias toward 1)
+        k = 1 if random.random() < 0.70 else random.randint(2, NUM_CHANNELS)
+        chs = random.sample(range(NUM_CHANNELS), k)
+
+        for ch in chs:
+            self.artifacts[ch] = {"type": "dropout", "end_t": end_t}
+
+
+    def _start_spike(self, end_t):
+        """
+        Spike: sharp transient, usually 1 channel.
+        """
+        ch = random.randrange(NUM_CHANNELS)
+        amp = random.uniform(1.5, 3.5)
+        self.artifacts[ch] = {"type": "spike", "end_t": end_t, "amp": amp}
+
+
+    def _start_line_noise(self, end_t):
+        """
+        Line noise: typically affects all channels together.
+        """
+        amp = random.uniform(0.05, 0.25)
+        self.global_line_noise = {"end_t": end_t, "amp": amp}
+
+
+    def _start_saturation(self, end_t):
+        """
+        Saturation/clipping: 1 channel hits rails.
+        """
+        ch = random.randrange(NUM_CHANNELS)
+        rail = random.uniform(0.6, 1.2)
+        self.artifacts[ch] = {"type": "saturation", "end_t": end_t, "rail": rail}
+
+
+    def _cleanup_artifacts(self, t):
+        """
+        Remove expired artifacts.
+        """
+        for ch in range(NUM_CHANNELS):
+            a = self.artifacts[ch]
+            if a is not None and t >= a["end_t"]:
+                self.artifacts[ch] = None
+
+        if self.global_line_noise is not None and t >= self.global_line_noise["end_t"]:
+            self.global_line_noise = None
