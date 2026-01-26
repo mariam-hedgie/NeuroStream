@@ -9,6 +9,7 @@ const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 
 let chart; // Chart.js instance
+let lastQualityFetch = 0;
 
 async function fetchHealth() {
     // health check
@@ -26,6 +27,19 @@ async function fetchLatest() {
   if (!res.ok) throw new Error("latest not ok");
   return await res.json();
 }
+
+async function fetchQuality() {
+    const res = await fetch(`${API_BASE}/quality`);
+    if (!res.ok) throw new Error("quality not ok");
+    return await res.json();
+  }
+  
+function renderQuality(q) {
+    // Simple: show overall status in the status line (or you can add dedicated DOM elements)
+    // q.overall.status is "good" / "degraded" / "bad"
+    const summary = q.overall?.summary || "";
+    statusEl.textContent = `streaming | quality: ${q.overall.status} (${summary})`;
+    }
 
 function initChart(numChannels) {
   const ctx = document.getElementById("chart");
@@ -115,6 +129,18 @@ async function mainLoop() {
   try {
     const latest = await fetchLatest();
     updateChart(latest);
+    const now = Date.now();
+    if (now - lastQualityFetch > 1000) {   // once per second
+    lastQualityFetch = now;
+    try {
+        const q = await fetchQuality();
+        renderQuality(q);
+    } catch (e) {
+        console.error(e);
+    }
+    } else {
+    statusEl.textContent = "streaming";
+    }
     statusEl.textContent = "streaming";
   } catch (e) {
     statusEl.textContent = "error";
