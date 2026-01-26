@@ -1,16 +1,23 @@
-'''
-creates and manages a lightweight database that stores time-stamped 
-multichannel neural samples. provides ordered retreival for visualization
+"""
+creates and manages a lightweight database that stores time-stamped
+multichannel neural samples. provides ordered retrieval for visualization
 and analysis.
-'''
+"""
 
 import sqlite3
 import json
 from config import DB_PATH, NUM_CHANNELS
 
+
+def _connect():
+    # timeout helps if multiple threads hit sqlite
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    return conn
+
+
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor() # create cursor object
+    conn = _connect()
+    cursor = conn.cursor()
 
     # build dynamic SQL for channel columns
     channel_cols = ", ".join([f"ch{i} REAL" for i in range(NUM_CHANNELS)])
@@ -22,16 +29,16 @@ def init_db():
         )
     """)
 
-    # events table: stroes detected signal-quality incidents
+    # IMPORTANT: allow open incidents (end_ts + duration_s can be NULL)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             start_ts REAL NOT NULL,
-            end_ts REAL,                -- NULL while event is open
-            duration_s REAL,            -- NULL while event is open
+            end_ts REAL,
+            duration_s REAL,
             channel INTEGER NOT NULL,
-            status TEXT NOT NULL,       -- degraded/bad
-            reasons TEXT NOT NULL,      -- JSON list
+            status TEXT NOT NULL,
+            reasons TEXT NOT NULL,
             diagnosis TEXT NOT NULL
         )
     """)
@@ -39,10 +46,9 @@ def init_db():
     conn.commit()
     conn.close()
 
-# takes a sample and saves it into the database
-# simulates logging continuous neural aquistition into persistent storage
+
 def insert_sample(timestamp, values):
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     cursor = conn.cursor()
 
     placeholders = ",".join(["?"] * (NUM_CHANNELS + 1))
@@ -54,37 +60,35 @@ def insert_sample(timestamp, values):
     conn.commit()
     conn.close()
 
-# fetches most recent data for visualization/analysis
-# returns ordered time series data
-def get_latest_samples(limit=500): # 500 samples
-    conn = sqlite3.connect(DB_PATH)
+
+def get_latest_samples(limit=500):
+    conn = _connect()
     cursor = conn.cursor()
 
     cursor.execute(
         "SELECT * FROM neural_data ORDER BY timestamp DESC LIMIT ?",
-        (limit,)
+        (int(limit),)
     )
 
     rows = cursor.fetchall()
     conn.close()
+    return rows[::-1]  # oldest -> newest
 
-    return rows[::-1]  # reverse so oldest to newest
 
-# event logging of incidents
+# ---------------------------
+# EVENT LOGGING
+# ---------------------------
+
 def insert_event(start_ts, end_ts, duration_s, channel, status, reasons, diagnosis):
     """
-    Insert an event.
-    For open events: end_ts=None, duration_s=None
-    reasons is expected to already be a JSON string OR a list[str].
+    Insert event (can be OPEN: end_ts=None, duration_s=None)
+    reasons should be JSON string or list[str]
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     cursor = conn.cursor()
 
-    # normalize reasons into JSON text
-    if isinstance(reasons, str):
-        reasons_json = reasons
-    else:
-        reasons_json = json.dumps(list(reasons))
+    if isinstance(reasons, list):
+        reasons = json.dumps(reasons)
 
     cursor.execute("""
         INSERT INTO events (start_ts, end_ts, duration_s, channel, status, reasons, diagnosis)
@@ -95,21 +99,22 @@ def insert_event(start_ts, end_ts, duration_s, channel, status, reasons, diagnos
         None if duration_s is None else float(duration_s),
         int(channel),
         str(status),
-        reasons_json,
+        str(reasons),
         str(diagnosis),
     ))
 
     conn.commit()
     conn.close()
 
+
 def close_open_event(channel, end_ts):
     """
-    Close the most recent open event for a channel (end_ts is NULL).
+    Close the most recent OPEN event for a channel.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     cursor = conn.cursor()
 
-    # find most recent open event for this channel
+    # find most recent open event
     cursor.execute("""
         SELECT id, start_ts
         FROM events
@@ -121,7 +126,7 @@ def close_open_event(channel, end_ts):
     row = cursor.fetchone()
     if row is None:
         conn.close()
-        return
+        return False
 
     event_id, start_ts = row
     duration_s = max(0.0, float(end_ts) - float(start_ts))
@@ -134,13 +139,11 @@ def close_open_event(channel, end_ts):
 
     conn.commit()
     conn.close()
+    return True
 
 
 def get_events(limit=200):
-    """
-    Return latest events (most recent first).
-    """
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -165,15 +168,11 @@ def get_events(limit=200):
             "reasons": json.loads(r[6]) if r[6] else [],
             "diagnosis": r[7],
         })
-
     return events
 
 
 def clear_events():
-    """
-    Clear all logged events.
-    """
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM events")
     conn.commit()

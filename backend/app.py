@@ -309,10 +309,8 @@ def _quality_monitor_loop(poll_seconds=0.5, window_seconds=2.0, line_freq=60):
                     _active_incidents.pop(ch, None)
 
         except Exception as e:
-            # don't crash the thread
-            # You can print if you want; keep silent by default
-            # print("monitor error:", e)
-            pass
+            print("monitor error:", e)
+
 
         time.sleep(poll_seconds)
 

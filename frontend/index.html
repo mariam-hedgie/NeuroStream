@@ -53,6 +53,61 @@
         padding: 2px 6px;
         border-radius: 6px;
       }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 13px;
+      }
+      .table th, .table td {
+        border-bottom: 1px solid #1f2a44;
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+      }
+      .table th {
+        color: #a9b4d0;
+        font-weight: 700;
+      }
+      .pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 12px;
+        border: 1px solid #2b3a5f;
+      }
+      .pill.good { background: #16a34a; color: #fff; }
+      .pill.degraded { background: #f59e0b; color: #fff; }
+      .pill.bad { background: #dc2626; color: #fff; }
+
+      .tabs { display:flex; gap:8px; margin-top: 10px; }
+      .tabBtn {
+        padding: 6px 10px;
+        border-radius: 10px;
+        border: 1px solid #2b3a5f;
+        background: #101827;
+        color: #e8eefc;
+        cursor: pointer;
+      }
+      .tabBtn.active { background: #1f2a44; }
+      .tabPanel { display:none; margin-top: 10px; }
+      .tabPanel.active { display:block; }
+      .actionsRow { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+
+      .linkBtn{
+        display:inline-block;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid #2b3a5f;
+        background: #1f2a44;
+        color: #e8eefc;
+        text-decoration: none;
+        font-weight: 600;
+        }
+        .linkBtn:hover{ background:#263553; }
+
     </style>
   </head>
 
@@ -71,19 +126,60 @@
       <div class="card">
         <b>Controls</b>
         <div style="margin-top:10px;">
-          <button id="startBtn">Start</button>
-          <button id="stopBtn">Stop</button>
+            <button type="button" id="startBtn">Start</button>
+            <button type="button" id="stopBtn">Stop</button>
         </div>
         <p style="color:#a9b4d0; margin-top:10px;">
           Uses <code>POST /control</code> to start/stop acquisition.
         </p>
       </div>
+      <div class="card" style="min-width:520px; flex:1;">
+        <h3 style="margin:0 0 6px 0;">Signal Quality</h3>
 
-      <div class="card">
-        <h3>Signal Quality</h3>
-        <div id="qualitySummary">Loading...</div>
-        <div id="qualityBadges" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
+        <div class="tabs">
+            <button type="button" class="tabBtn active" id="tabQualityBtn">Quality</button>
+            <button type="button" class="tabBtn" id="tabIncidentsBtn">Incidents</button>
+        </div>
+
+        <!-- QUALITY TAB -->
+        <div class="tabPanel active" id="tabQuality">
+          <div id="qualitySummary">Loading...</div>
+          <div id="qualityBadges" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
+        </div>
+
+        <!-- INCIDENTS TAB -->
+        <div class="tabPanel" id="tabIncidents">
+          <div class="actionsRow">
+            <button type="button" id="refreshEventsBtn">Refresh</button>
+            <button type="button" id="clearEventsBtn">Clear</button>
+            <a id="downloadJsonBtn" class="linkBtn" href="/export/events.json">Download JSON</a>
+            <a id="downloadCsvBtn" class="linkBtn" href="/export/events.csv">Download CSV</a>
+          </div>
+
+          <div id="eventsSummary" style="color:#a9b4d0; margin-top:8px;">—</div>
+
+          <div style="margin-top:10px; overflow:auto; border:1px solid #1f2a44; border-radius:10px;">
+          <table class="table" id="eventsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Ch</th>
+                <th>Status</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Dur (s)</th>
+                <th>Diagnosis</th>
+                <th>Reasons</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTbody">
+              <tr><td colspan="8" style="color:#a9b4d0;">No events yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        </div>
       </div>
+    
     </div>
 
     <div style="margin-top:18px;">
