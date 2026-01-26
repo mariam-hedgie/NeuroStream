@@ -94,6 +94,10 @@ def control():
 def home():
     return send_from_directory("../frontend", "index.html")
 
+@app.route("/main.js")
+def main_js():
+    return send_from_directory("../frontend", "main.js")
+
 
 if __name__ == "__main__":
     # initialize database schema
@@ -103,4 +107,4 @@ if __name__ == "__main__":
     sim.start()
 
     # run the API server
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)

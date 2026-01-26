@@ -50,10 +50,7 @@ class NeuralDataSimulator:
             time.sleep(dt) # waits until next sample
 
     def start(self):
-        """
-        Start the simulator in a background thread.
-        """
-        if self.running:
+        if self.thread is not None and self.thread.is_alive():
             return  # already running
 
         self.running = True
@@ -61,7 +58,7 @@ class NeuralDataSimulator:
         self.thread.start()
 
     def stop(self):
-        """
-        Stop simulator loop.
-        """
         self.running = False
+        # wait briefly for thread to exit
+        if self.thread is not None: 
+            self.thread.join(timeout=0.2)
