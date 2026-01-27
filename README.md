@@ -96,12 +96,12 @@ Stored in SQLite table: `events`.
 
 ## How to Run
 
-1. Install dependencies:
+1. From inside the backend folder, install dependencies: 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. From inside the backend folder:
+2. Still inside the backend folder, run app: 
 ```bash
 python app.py
 ```
