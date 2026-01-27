@@ -1,207 +1,140 @@
-# NeuroStream  
-**Real-Time Neural Signal Simulation, Quality Monitoring, and Incident Logging System**
+# NeuroStream
 
-NeuroStream is a prototype system that simulates multichannel neural data acquisition, performs real-time signal quality analysis, and logs signal degradation incidents with timestamps and diagnoses.
-
-This project demonstrates core software concepts used in neural interface and medical monitoring systems, including continuous data streaming, signal quality assessment, and event logging.
+Lightweight simulated neural streaming dashboard with per-channel signal quality monitoring and incident logging.
 
 ---
 
 ## Table of Contents
-1. Purpose and Motivation  
-2. System Architecture  
-3. Workflow Overview  
-4. Signal Quality Metrics  
-5. Status Definitions  
-6. Incident Logging and Diagnosis  
-7. User Interface  
-8. How to Run  
-9. Example Outputs  
-10. Future Work  
+- [Purpose](#purpose)
+- [What You Get](#what-you-get)
+- [Architecture](#architecture)
+- [Workflow](#workflow)
+- [Signal Quality](#signal-quality)
+  - [States: good vs degraded vs bad](#states-good-vs-degraded-vs-bad)
+  - [Metrics](#metrics)
+- [Incident Logging](#incident-logging)
+- [API Endpoints](#api-endpoints)
+- [How to Run](#how-to-run)
+- [Screenshots](#screenshots)
+- [Configuration](#configuration)
+- [Future Work](#future-work)
 
 ---
 
-## 1. Purpose and Motivation
-
-NeuroStream provides a simplified but realistic prototype of a neural monitoring software pipeline.  
-Its goal is to model how neural signals can be streamed, evaluated for quality, and automatically logged when problems occur.
-
-The system focuses on:
-- Explainable signal quality metrics  
-- Transparent detection logic  
-- Persistent incident logging  
-- Modular and extensible design  
+## Purpose
+NeuroStream simulates a multi-channel neural acquisition device and demonstrates how signal quality can be monitored and logged in real time for engineering and research applications.
 
 ---
 
-## 2. System Architecture
-
-```
-[ Simulator Thread ]
-        |
-        v
-[ SQLite Database ] <---- Quality Monitor Thread
-        |
-        v
-[ Flask REST API ]
-        |
-        v
-[ Web Dashboard (Chart.js) ]
-```
-
-### Components
-
-- **Simulator (`simulator.py`)**
-  - Generates multichannel neural samples
-  - Injects artifacts (dropout, noise, spikes, clipping)
-  - Writes samples to database
-
-- **Database (`db.py`)**
-  - Stores neural samples
-  - Stores detected signal incidents
-
-- **Quality Analysis (`quality.py`)**
-  - Computes RMS, dropout fraction, line noise ratio, and peak-to-peak
-  - Assigns status and reasons
-
-- **Flask API (`app.py`)**
-  - Serves `/latest`, `/quality`, `/events`, `/control`
-  - Runs monitoring thread
-  - Exports logs
-
-- **Frontend**
-  - Real-time plot
-  - Quality badges
-  - Incident log table
+## What You Get
+- Live neural signal visualization
+- Per-channel quality assessment
+- Incident logging with timestamps and diagnosis
+- Exportable logs (CSV / JSON)
 
 ---
 
-## 3. Workflow Overview
+## Architecture
+**Backend**
+- Flask REST API
+- SQLite database for samples and events
+- Background monitoring thread
 
-1. Simulator generates samples  
-2. Samples stored in database  
-3. Quality monitor analyzes recent samples  
-4. Incidents detected and logged  
-5. Frontend displays signals and events  
-
----
-
-## 4. Signal Quality Metrics
-
-### RMS (Root Mean Square)
-Measures signal power. Low RMS may indicate disconnected or flat channels.
-
-### Peak-to-Peak Amplitude
-Difference between max and min values. High values suggest spikes or clipping.
-
-### Dropout Fraction
-Percentage of zero or missing samples. Indicates packet loss or disconnection.
-
-### Line Noise Ratio
-Power near 60 Hz divided by total power. Indicates electrical interference.
+**Frontend**
+- Vanilla JavaScript
+- Chart.js for plotting
+- Tab-based interface for quality and incidents
 
 ---
 
-## 5. Status Definitions
-
-### Good
-Normal RMS, low dropout, low line noise.
-
-### Degraded
-Moderate signal issues (early warning state).
-
-### Bad
-Severe signal failure. Signal unusable.
+## Workflow
+1. Simulator generates neural samples.
+2. Samples stored in SQLite.
+3. Quality metrics computed in sliding windows.
+4. State transitions logged as incidents.
+5. Frontend polls APIs and renders charts and tables.
 
 ---
 
-## 6. Incident Logging and Diagnosis
+## Signal Quality
 
-When a channel becomes degraded or bad, an incident is opened with:
-- Start time
-- Channel
-- Status
-- Reasons
-- Diagnosis
-
-When recovered:
-- End time and duration are recorded
-
-Example diagnoses:
-- channel_dropout_severe  
-- mains_interference_severe  
-- flatline electrode  
-- clipping/saturation  
+### States: good vs degraded vs bad
+- **good**: signal within normal limits.
+- **degraded**: moderate artifacts detected.
+- **bad**: severe dropout, noise, or clipping.
 
 ---
 
-## 7. User Interface
-
-- Live signal plot  
-- Quality tab with channel badges  
-- Incidents tab with log table  
-- Export to JSON/CSV  
+### Metrics
+- **RMS (Root Mean Square):** overall signal energy.
+- **Peak-to-Peak:** amplitude range.
+- **Dropout Fraction:** percentage of missing/zero samples.
+- **Line Noise Ratio:** proportion of power at 60Hz.
 
 ---
 
-## 8. How to Run
+## Incident Logging
+When a channel enters degraded or bad state:
+- start timestamp is recorded
+- end timestamp when recovered
+- duration computed
+- diagnosis inferred from metric thresholds
 
-### Requirements
-- Python 3.9+
-- Flask, NumPy
+Stored in SQLite table: `events`.
 
-### Install
+---
+
+## API Endpoints
+- `/health`
+- `/latest`
+- `/quality`
+- `/events`
+- `/export/events.csv`
+- `/export/events.json`
+
+---
+
+## How to Run
+
+1. Install dependencies:
 ```bash
-pip install flask numpy
+pip install -r requirements.txt
 ```
 
-### Run
+2. From inside the backend folder:
 ```bash
 python app.py
 ```
 
-### Open browser
+3. Open browser:
 ```
-http://127.0.0.1:5000
+http://127.0.0.1:5000/
 ```
 
 ---
 
-## 9. Example Outputs
+## Screenshots
 
-### Live Signal Plot
-![Live Signal Plot](docs/signal_plot.png)
+Signal plot example:
+![Signal Plot](docs/signal_plot.jpg)
 
-### Incident Log
-![Incident Log](docs/incidents_log.png)
-
----
-
-## 10. Future Work
-
-Future extensions may include:
-- Real hardware integration  
-- WebSocket streaming  
-- Advanced filtering  
-- Machine learning classifiers  
-- Alerts and notifications  
-- Cloud database backend  
+Incident log example:
+![Incident Log](docs/incidents_log.jpg)
 
 ---
 
-## Educational Value
-
-This project demonstrates:
-- Real-time data pipelines  
-- Signal quality engineering  
-- REST APIs  
-- Frontend-backend integration  
-- Persistent event logging  
+## Configuration
+Edit `config.py` to adjust:
+- sample rate
+- number of channels
+- artifact probabilities
+- database path
 
 ---
 
-## Author
-Mariam Husain  
-Biomedical Engineering & Computer Science  
-Johns Hopkins University  
+## Future Work
+- Real hardware integration
+- Advanced artifact classifiers
+- User annotations
+- Long-term trend analytics
 
