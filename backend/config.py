@@ -1,4 +1,4 @@
-DATA_SOURCE = "simulator"  # "simulator" | "replay"
+DATA_SOURCE = "replay"  # "simulator" | "replay"
 
 SAMPLE_RATE_HERTZ = 256 # samples/sec our "neural device" produces
 NUM_CHANNELS = 4 # num of simualted EEG channels
@@ -15,6 +15,13 @@ REPLAY_CHUNK_SIZE = 16
 REPLAY_LOOP = True
 REPLAY_USE_LSL = False
 REPLAY_STREAM_NAME = "NeuroStreamReplay"
+
+DECODER_ENABLED = True
+DECODER_WINDOW_SECONDS = 1.0
+DECODER_STEP_SECONDS = 0.5
+DECODER_TMIN_SECONDS = 0.5
+DECODER_TMAX_SECONDS = 3.5
+DECODER_CLASSES = ["left_hand", "right_hand"]
 
 ARTIFACT_CHANGE_PER_SEC = 0.35
 ARTIFACT_MIN_SEC = 0.4

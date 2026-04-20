@@ -3,3 +3,4 @@ numpy>=1.26,<3
 mne>=1.7,<2
 mne-lsl>=1.13,<2
 moabb>=1.1,<2
+scikit-learn>=1.4,<2

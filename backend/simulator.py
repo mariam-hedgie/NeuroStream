@@ -17,12 +17,13 @@ class NeuralDataSimulator:
     Runs continuously in a background thread and writes samples to the database.
     """
 
-    def __init__(self):
+    def __init__(self, on_sample=None):
 
         self.t0 = None
         self.running = False # flag
         self.thread = None
         self.sample_rate_hertz = SAMPLE_RATE_HERTZ
+        self.on_sample = on_sample
 
         # give each channel slightly different frequency and phase 
         self.freqs = [10 + i * 2 for i in range(NUM_CHANNELS)]   # e.g., 10, 12, 14, 16 Hz
@@ -88,6 +89,8 @@ class NeuralDataSimulator:
 
             # store one row of timestamp + channel values 
             insert_sample(t_now, sample)
+            if self.on_sample is not None:
+                self.on_sample(t_now, sample)
 
             # sleep to match sampling rate
             time.sleep(dt) # waits until next sample

@@ -43,6 +43,15 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp REAL NOT NULL,
+            predicted_class TEXT NOT NULL,
+            confidence REAL NOT NULL
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -177,3 +186,41 @@ def clear_events():
     cursor.execute("DELETE FROM events")
     conn.commit()
     conn.close()
+
+
+def insert_prediction(timestamp, predicted_class, confidence):
+    conn = _connect()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO predictions (timestamp, predicted_class, confidence)
+        VALUES (?, ?, ?)
+    """, (
+        float(timestamp),
+        str(predicted_class),
+        float(confidence),
+    ))
+    conn.commit()
+    conn.close()
+
+
+def get_latest_prediction():
+    conn = _connect()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, timestamp, predicted_class, confidence
+        FROM predictions
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+    row = cursor.fetchone()
+    conn.close()
+
+    if row is None:
+        return None
+
+    return {
+        "id": row[0],
+        "timestamp": row[1],
+        "predicted_class": row[2],
+        "confidence": row[3],
+    }

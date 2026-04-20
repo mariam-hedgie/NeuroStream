@@ -109,7 +109,7 @@ def _select_dashboard_channels(raw: mne.io.BaseRaw, requested_names: Iterable[st
     return raw.copy().pick(selected[:NUM_CHANNELS])
 
 
-def _prepare_replay_raw() -> mne.io.BaseRaw:
+def load_replay_raw() -> mne.io.BaseRaw:
     """
     Load one dataset recording and reduce it to the 4 EEG channels used by the
     existing dashboard/DB contract.
@@ -176,19 +176,20 @@ class ReplayDataSource:
       first integration keeps the app simple by replaying directly from Raw.
     """
 
-    def __init__(self):
+    def __init__(self, on_sample=None):
         self.running = False
         self.thread: Optional[threading.Thread] = None
         self.raw: Optional[mne.io.BaseRaw] = None
         self.sample_rate_hertz: Optional[int] = None
         self.channel_names = []
         self.lsl_player = None
+        self.on_sample = on_sample
 
     def _ensure_loaded(self):
         if self.raw is not None:
             return
 
-        raw = _prepare_replay_raw()
+        raw = load_replay_raw()
         self.raw = raw
         self.sample_rate_hertz = int(round(float(raw.info["sfreq"])))
         self.channel_names = list(raw.ch_names)
@@ -218,7 +219,11 @@ class ReplayDataSource:
 
             # Preserve the downstream contract: one DB row per timestamped sample.
             for offset, sample in enumerate(chunk):
-                insert_sample(chunk_start + (offset * sample_period), sample.tolist())
+                timestamp = chunk_start + (offset * sample_period)
+                sample_values = sample.tolist()
+                insert_sample(timestamp, sample_values)
+                if self.on_sample is not None:
+                    self.on_sample(timestamp, sample_values)
 
             cursor = stop
             sleep_for = len(chunk) * sample_period

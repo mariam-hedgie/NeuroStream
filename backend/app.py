@@ -10,20 +10,34 @@ import io
 
 import db
 from db import init_db, get_latest_samples
+from decoder import RollingWindowDecoder
 from simulator import NeuralDataSimulator
 from config import BUFFER_SIZE, DATA_SOURCE, NUM_CHANNELS, SAMPLE_RATE_HERTZ
 
 app = Flask(__name__)
+decoder = RollingWindowDecoder()
 
 
 def _make_data_source():
     if DATA_SOURCE == "replay":
         from replay import ReplayDataSource
-        return ReplayDataSource()
-    return NeuralDataSimulator()
+        return ReplayDataSource(on_sample=decoder.add_sample)
+    return NeuralDataSimulator(on_sample=decoder.add_sample)
 
 
 source = _make_data_source()
+
+
+def _configure_decoder():
+    if not decoder.enabled:
+        return
+
+    try:
+        from replay import load_replay_raw
+        raw = load_replay_raw()
+        decoder.configure_from_raw(raw)
+    except Exception as exc:
+        decoder.set_unavailable(str(exc))
 
 
 def _current_sample_rate_hertz():
@@ -183,7 +197,8 @@ def config():
         "data_source": DATA_SOURCE,
         "num_channels": NUM_CHANNELS,
         "sample_rate_hertz": _current_sample_rate_hertz(),
-        "buffer_size": BUFFER_SIZE
+        "buffer_size": BUFFER_SIZE,
+        "decoder_enabled": decoder.enabled,
     })
 
 
@@ -198,6 +213,16 @@ def events():
 def events_clear():
     db.clear_events()
     return jsonify({"status": "cleared"})
+
+
+@app.route("/prediction", methods=["GET"])
+def prediction():
+    payload = decoder.get_latest_prediction()
+    if payload.get("available"):
+        latest = db.get_latest_prediction()
+        if latest is not None:
+            payload["prediction"] = latest
+    return jsonify(payload)
 
 
 @app.route("/export/events.json", methods=["GET"])
@@ -330,6 +355,7 @@ def _quality_monitor_loop(poll_seconds=0.5, window_seconds=2.0, line_freq=60):
 
 if __name__ == "__main__":
     init_db()
+    _configure_decoder()
 
     source.start()
 

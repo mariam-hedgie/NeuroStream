@@ -153,6 +153,35 @@ Notes:
 - Replay loops by default when it reaches the end of the selected run
 - If you want the old synthetic stream, switch `DATA_SOURCE` back to `"simulator"`
 
+### Baseline Motor Imagery Decoder
+The replay pipeline now includes a lightweight real-time baseline decoder.
+
+- Training happens offline at startup from the same replay dataset/run used for streaming
+- The first baseline is a left-vs-right motor imagery classifier using simple windowed EEG features
+- Each rolling window computes alpha bandpower, beta bandpower, RMS, variance, and log power for the 4 dashboard channels
+- A Linear Discriminant Analysis classifier predicts the latest class and confidence
+- Predictions are stored in SQLite and exposed through `GET /prediction`
+
+Default decoding settings in `backend/config.py`:
+
+- `DECODER_WINDOW_SECONDS = 1.0`
+- `DECODER_STEP_SECONDS = 0.5`
+- `DECODER_TMIN_SECONDS = 0.5`
+- `DECODER_TMAX_SECONDS = 3.5`
+
+Run the decoder:
+
+```bash
+cd backend
+python -m pip install -r requirements.txt
+python app.py
+```
+
+Notes:
+- Decoder output is only available in replay mode
+- This is a baseline classifier for later comparison, not a production-ready BCI decoder
+- Predictions update in near real time as replayed samples fill the rolling buffer
+
 ---
 
 ## Future Work

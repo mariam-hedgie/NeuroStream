@@ -14,6 +14,9 @@ const stopBtn = document.getElementById("stopBtn");
 
 const qualitySummaryEl = document.getElementById("qualitySummary");
 const qualityBadgesEl = document.getElementById("qualityBadges");
+const predictionClassEl = document.getElementById("predictionClass");
+const predictionConfidenceEl = document.getElementById("predictionConfidence");
+const predictionTsEl = document.getElementById("predictionTs");
 
 // tabs
 const tabQualityBtn = document.getElementById("tabQualityBtn");
@@ -31,6 +34,7 @@ let lastEventsFetch = 0;
 
 let chart; // Chart.js instance
 let lastQualityFetch = 0;
+let lastPredictionFetch = 0;
 let configLoaded = false;
 
 function setActiveTab(which) {
@@ -83,6 +87,12 @@ async function fetchQuality() {
     return await res.json();
   }
 
+async function fetchPrediction() {
+    const res = await fetch(`${API_BASE}/prediction`);
+    if (!res.ok) throw new Error(`prediction not ok: ${res.status}`);
+    return await res.json();
+  }
+
 async function fetchEvents(limit = 100) {
     const res = await fetch(`${API_BASE}/events?limit=${limit}`);
     if (!res.ok) throw new Error(`events not ok: ${res.status}`);
@@ -128,6 +138,21 @@ function renderQuality(q) {
   
       qualityBadgesEl.appendChild(pill);
     });
+  }
+
+function renderPrediction(payload) {
+    if (!predictionClassEl || !predictionConfidenceEl || !predictionTsEl) return;
+
+    if (!payload.available || !payload.prediction) {
+      predictionClassEl.textContent = payload.reason || "unavailable";
+      predictionConfidenceEl.textContent = "—";
+      predictionTsEl.textContent = "—";
+      return;
+    }
+
+    predictionClassEl.textContent = payload.prediction.predicted_class;
+    predictionConfidenceEl.textContent = `${(Number(payload.prediction.confidence) * 100).toFixed(1)}%`;
+    predictionTsEl.textContent = fmtTime(payload.prediction.timestamp);
   }
 
 function fmtTime(ts) {
@@ -316,6 +341,16 @@ async function mainLoop() {
       } catch (e) {
         console.error(e);
         if (qualitySummaryEl) qualitySummaryEl.textContent = `Quality error: ${e.message}`;
+      }
+    }
+
+    if (now - lastPredictionFetch > 1000) {
+      lastPredictionFetch = now;
+      try {
+        const prediction = await fetchPrediction();
+        renderPrediction(prediction);
+      } catch (e) {
+        console.error(e);
       }
     }
 
