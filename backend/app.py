@@ -11,12 +11,24 @@ import io
 import db
 from db import init_db, get_latest_samples
 from simulator import NeuralDataSimulator
-from config import BUFFER_SIZE, NUM_CHANNELS, SAMPLE_RATE_HERTZ
+from config import BUFFER_SIZE, DATA_SOURCE, NUM_CHANNELS, SAMPLE_RATE_HERTZ
 
 app = Flask(__name__)
 
-# make one simulator instance for the app 
-sim = NeuralDataSimulator()
+
+def _make_data_source():
+    if DATA_SOURCE == "replay":
+        from replay import ReplayDataSource
+        return ReplayDataSource()
+    return NeuralDataSimulator()
+
+
+source = _make_data_source()
+
+
+def _current_sample_rate_hertz():
+    sample_rate = getattr(source, "sample_rate_hertz", None)
+    return sample_rate or SAMPLE_RATE_HERTZ
 
 # quality monitoring and event tracking
 _monitor_thread = None
@@ -124,7 +136,7 @@ def control():
     action = payload.get("action", "").lower()
 
     if action == "start":
-        sim.start()
+        source.start()
 
         # start monitor if not running
         global _monitor_thread
@@ -133,11 +145,11 @@ def control():
             _monitor_thread = threading.Thread(target=_quality_monitor_loop, daemon=True)
             _monitor_thread.start()
 
-        return jsonify({"status": "started"})
+        return jsonify({"status": "started", "data_source": DATA_SOURCE})
 
     elif action == "stop":
-        sim.stop()
-        return jsonify({"status": "stopped"})
+        source.stop()
+        return jsonify({"status": "stopped", "data_source": DATA_SOURCE})
 
     else:
         return jsonify({"error": "action must be 'start' or 'stop'"}), 400
@@ -162,14 +174,15 @@ def quality():
             "channels": list(row[1:])
         })
 
-    q = compute_quality(samples, fs=SAMPLE_RATE_HERTZ, line_freq=60, window_seconds=2.0)
+    q = compute_quality(samples, fs=_current_sample_rate_hertz(), line_freq=60, window_seconds=2.0)
     return jsonify(q)
 
 @app.route("/config", methods=["GET"])
 def config():
     return jsonify({
+        "data_source": DATA_SOURCE,
         "num_channels": NUM_CHANNELS,
-        "sample_rate_hertz": SAMPLE_RATE_HERTZ,
+        "sample_rate_hertz": _current_sample_rate_hertz(),
         "buffer_size": BUFFER_SIZE
     })
 
@@ -239,18 +252,18 @@ def _quality_monitor_loop(poll_seconds=0.5, window_seconds=2.0, line_freq=60):
     """
     global _active_incidents
 
-    needed = int(SAMPLE_RATE_HERTZ * window_seconds)
-    # overshoot to be safe
-    limit = max(needed + 50, 500)
-
     while not _monitor_stop.is_set():
         try:
+            fs = _current_sample_rate_hertz()
+            needed = int(fs * window_seconds)
+            # overshoot to be safe
+            limit = max(needed + 50, 500)
             rows = get_latest_samples(limit=limit)
             samples = _rows_to_samples(rows)
 
             q = compute_quality(
                 samples,
-                fs=SAMPLE_RATE_HERTZ,
+                fs=fs,
                 line_freq=line_freq,
                 window_seconds=window_seconds
             )
@@ -318,7 +331,7 @@ def _quality_monitor_loop(poll_seconds=0.5, window_seconds=2.0, line_freq=60):
 if __name__ == "__main__":
     init_db()
 
-    sim.start()
+    source.start()
 
     # start quality monitor
     _monitor_stop.clear()

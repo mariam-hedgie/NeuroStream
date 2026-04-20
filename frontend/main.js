@@ -2,7 +2,7 @@ console.log("main.js loaded"); // for debugging
 console.log("chart exists?", typeof Chart);
 
 const API_BASE = ""; // where backend lives
-const SAMPLE_RATE_HERTZ = 256;
+let sampleRateHertz = 256;
 
 const statusEl = document.getElementById("status");
 const samplesEl = document.getElementById("samples");
@@ -31,6 +31,7 @@ let lastEventsFetch = 0;
 
 let chart; // Chart.js instance
 let lastQualityFetch = 0;
+let configLoaded = false;
 
 function setActiveTab(which) {
     const isQuality = which === "quality";
@@ -67,6 +68,12 @@ async function fetchHealth() {
 async function fetchLatest() {
   const res = await fetch(`${API_BASE}/latest`);
   if (!res.ok) throw new Error("latest not ok");
+  return await res.json();
+}
+
+async function fetchConfig() {
+  const res = await fetch(`${API_BASE}/config`);
+  if (!res.ok) throw new Error("config not ok");
   return await res.json();
 }
 
@@ -222,7 +229,7 @@ function updateChart(payload) {
   if (!chart) initChart(num_channels);
 
   // x-axis labels = sample index (simple + stable)
-  const labels = data.map((_, i) => (i / SAMPLE_RATE_HERTZ).toFixed(2)); // seconds
+  const labels = data.map((_, i) => (i / sampleRateHertz).toFixed(2)); // seconds
 
   chart.data.labels = labels;
 
@@ -281,6 +288,18 @@ setActiveTab("quality");
 
 async function mainLoop() {
   await fetchHealth();
+
+  if (!configLoaded) {
+    try {
+      const cfg = await fetchConfig();
+      if (cfg.sample_rate_hertz) {
+        sampleRateHertz = cfg.sample_rate_hertz;
+      }
+      configLoaded = true;
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   try {
     const latest = await fetchLatest();

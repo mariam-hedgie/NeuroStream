@@ -22,6 +22,7 @@ class NeuralDataSimulator:
         self.t0 = None
         self.running = False # flag
         self.thread = None
+        self.sample_rate_hertz = SAMPLE_RATE_HERTZ
 
         # give each channel slightly different frequency and phase 
         self.freqs = [10 + i * 2 for i in range(NUM_CHANNELS)]   # e.g., 10, 12, 14, 16 Hz
